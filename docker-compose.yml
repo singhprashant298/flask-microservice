@@ -1,0 +1,49 @@
+services:
+  mongodb:
+    image: mongo:8
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_ROOT_USERNAME:-admin}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_ROOT_PASSWORD:-prashant143143}
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    networks: [app-network]
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      MONGO_URI: mongodb://${MONGO_ROOT_USERNAME:-admin}:${MONGO_ROOT_PASSWORD:-prashant143143}@mongodb:27017/mydatabase?authSource=admin
+      MONGO_DATABASE: mydatabase
+    ports:
+      - "5001:5001"
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    networks: [app-network]
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    environment:
+      BACKEND_URL: http://backend:5001
+      FLASK_SECRET_KEY: ${FLASK_SECRET_KEY:-15f012601346c8e2eec6bc74419c037476b136159a7b5c3bd3a3d4dcae0a0214}
+    ports:
+      - "5000:5000"
+    depends_on:
+      - backend
+    networks: [app-network]
+
+volumes:
+  mongo_data:
+
+networks:
+  app-network:
+    driver: bridge

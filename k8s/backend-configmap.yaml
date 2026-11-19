@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  namespace: flask-app-k8s-deploy
+data:
+  MONGO_DATABASE: mydatabase
