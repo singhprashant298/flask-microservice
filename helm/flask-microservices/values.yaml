@@ -2,8 +2,8 @@
 backend:
   replicaCount: 1
   image:
-    repository: k8s-microservice-backend
-    tag: latest
+    repository: flask-backend
+    tag: ci
     pullPolicy: IfNotPresent
   service:
     type: ClusterIP
@@ -13,14 +13,14 @@ backend:
 frontend:
   replicaCount: 1
   image:
-    repository: k8s-microservice-frontend
-    tag: latest
+    repository: flask-frontend
+    tag: ci
     pullPolicy: IfNotPresent
   service:
     type: NodePort
     port: 80
     targetPort: 5000
-    nodePort: 30081
+    nodePort: 30082
 
 mongodb:
   replicaCount: 1
@@ -30,3 +30,4 @@ mongodb:
     pullPolicy: IfNotPresent
   service:
     port: 27017
+

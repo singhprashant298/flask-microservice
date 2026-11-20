@@ -37,6 +37,18 @@ pipeline {
             }
         }
     }
+    
+    stage('Deploy to Minikube') {
+    steps {
+        sh '''
+            helm upgrade --install flask-jenkins \
+                ./helm/flask-microservices \
+                --kubeconfig=/tmp/kubeconfig \
+                --namespace jenkins-demo \
+                --create-namespace
+        '''
+      }
+    }
 
     post {
         success {
