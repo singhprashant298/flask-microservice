@@ -2,10 +2,24 @@
 pipeline {
     agent any
 
+    environment {
+        NAMESPACE = 'jenkins-demo'
+        RELEASE_NAME = 'flask-jenkins'
+        KUBECONFIG = '/tmp/kubeconfig'
+
+        BACKEND_IMAGE = 'flask-backend'
+        FRONTEND_IMAGE = 'flask-frontend'
+
+        IMAGE_TAG = 'ci'
+    }
+
     stages {
+
         stage('Checkout') {
             steps {
-                echo 'Source code checked out from GitHub'
+                checkout scm
+
+                echo 'Latest source code checked out successfully'
             }
         }
 
@@ -18,7 +32,11 @@ pipeline {
         stage('Backend Dependencies') {
             steps {
                 dir('backend') {
-                    sh 'python3 -m pip install --break-system-packages -r requirements.txt'
+                    sh '''
+                        python3 -m pip install \
+                        --break-system-packages \
+                        -r requirements.txt
+                    '''
                 }
             }
         }
@@ -26,7 +44,11 @@ pipeline {
         stage('Frontend Dependencies') {
             steps {
                 dir('frontend') {
-                    sh 'python3 -m pip install --break-system-packages -r requirements.txt'
+                    sh '''
+                        python3 -m pip install \
+                        --break-system-packages \
+                        -r requirements.txt
+                    '''
                 }
             }
         }
@@ -34,8 +56,11 @@ pipeline {
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    docker build -t flask-backend:ci ./backend
-                    docker build -t flask-frontend:ci ./frontend
+                    docker build --no-cache \
+                        -t ${BACKEND_IMAGE}:${IMAGE_TAG} ./backend
+
+                    docker build --no-cache \
+                        -t ${FRONTEND_IMAGE}:${IMAGE_TAG} ./frontend
                 '''
             }
         }
@@ -43,8 +68,8 @@ pipeline {
         stage('Load Images into Minikube') {
             steps {
                 sh '''
-                    minikube image load flask-backend:ci
-                    minikube image load flask-frontend:ci
+                    minikube image load ${BACKEND_IMAGE}:${IMAGE_TAG}
+                    minikube image load ${FRONTEND_IMAGE}:${IMAGE_TAG}
                 '''
             }
         }
@@ -52,10 +77,10 @@ pipeline {
         stage('Deploy with Helm') {
             steps {
                 sh '''
-                    helm upgrade --install flask-jenkins \
+                    helm upgrade --install ${RELEASE_NAME} \
                         ./helm/flask-microservices \
-                        --kubeconfig=/tmp/kubeconfig \
-                        --namespace jenkins-demo \
+                        --kubeconfig=${KUBECONFIG} \
+                        --namespace ${NAMESPACE} \
                         --create-namespace
                 '''
             }
@@ -64,18 +89,42 @@ pipeline {
         stage('Restart Deployments') {
             steps {
                 sh '''
-                    kubectl --kubeconfig=/tmp/kubeconfig \
+                    kubectl --kubeconfig=${KUBECONFIG} \
                         rollout restart deployment/backend \
                         deployment/frontend \
-                        -n jenkins-demo
+                        -n ${NAMESPACE}
 
-                    kubectl --kubeconfig=/tmp/kubeconfig \
+                    kubectl --kubeconfig=${KUBECONFIG} \
                         rollout status deployment/backend \
-                        -n jenkins-demo
+                        -n ${NAMESPACE} \
+                        --timeout=180s
 
-                    kubectl --kubeconfig=/tmp/kubeconfig \
+                    kubectl --kubeconfig=${KUBECONFIG} \
                         rollout status deployment/frontend \
-                        -n jenkins-demo
+                        -n ${NAMESPACE} \
+                        --timeout=180s
+                '''
+            }
+        }
+
+        stage('Verify Deployment') {
+            steps {
+                sh '''
+                    echo "Checking deployed images..."
+
+                    kubectl --kubeconfig=${KUBECONFIG} \
+                        get deployments -n ${NAMESPACE} \
+                        -o wide
+
+                    echo "Checking pods..."
+
+                    kubectl --kubeconfig=${KUBECONFIG} \
+                        get pods -n ${NAMESPACE}
+
+                    echo "Checking services..."
+
+                    kubectl --kubeconfig=${KUBECONFIG} \
+                        get services -n ${NAMESPACE}
                 '''
             }
         }
@@ -84,9 +133,15 @@ pipeline {
     post {
         success {
             echo 'Flask microservices CI/CD completed successfully!'
+            echo 'Latest Docker images deployed to Minikube.'
         }
+
         failure {
             echo 'Pipeline failed. Check Console Output.'
+        }
+
+        always {
+            echo 'Jenkins pipeline execution finished.'
         }
     }
 }
