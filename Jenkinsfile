@@ -14,21 +14,18 @@ pipeline {
         BACKEND_IMAGE = 'flask-backend'
         FRONTEND_IMAGE = 'flask-frontend'
 
-        IMAGE_TAG = "ci"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
 
-        // 1. Checkout latest source code
         stage('Checkout') {
             steps {
                 checkout scm
-
                 echo 'Latest source code checked out successfully'
             }
         }
 
-        // 2. Verify latest GitHub code
         stage('Verify Latest Code') {
             steps {
                 sh '''
@@ -44,7 +41,6 @@ pipeline {
             }
         }
 
-        // 3. Check Python
         stage('Check Python') {
             steps {
                 sh '''
@@ -54,7 +50,6 @@ pipeline {
             }
         }
 
-        // 4. Install backend dependencies
         stage('Backend Dependencies') {
             steps {
                 dir('backend') {
@@ -67,7 +62,6 @@ pipeline {
             }
         }
 
-        // 5. Install frontend dependencies
         stage('Frontend Dependencies') {
             steps {
                 dir('frontend') {
@@ -80,30 +74,26 @@ pipeline {
             }
         }
 
-        // 6. Build Docker images
         stage('Build Docker Images') {
             steps {
                 sh '''
-                    echo "Building Backend Image..."
+                    echo "Building Backend Image: ${BACKEND_IMAGE}:${IMAGE_TAG}"
 
                     docker build --no-cache \
                         -t ${BACKEND_IMAGE}:${IMAGE_TAG} \
                         ./backend
 
-                    echo "Building Frontend Image..."
+                    echo "Building Frontend Image: ${FRONTEND_IMAGE}:${IMAGE_TAG}"
 
                     docker build --no-cache \
                         -t ${FRONTEND_IMAGE}:${IMAGE_TAG} \
                         ./frontend
-
-                    echo "Docker images built successfully"
 
                     docker images | grep flask
                 '''
             }
         }
 
-        // 7. Load images into Minikube
         stage('Load Images into Minikube') {
             steps {
                 sh '''
@@ -122,7 +112,6 @@ pipeline {
             }
         }
 
-        // 8. Deploy using Helm
         stage('Deploy with Helm') {
             steps {
                 sh '''
@@ -135,8 +124,10 @@ pipeline {
                         --create-namespace \
                         --set backend.image.repository=${BACKEND_IMAGE} \
                         --set backend.image.tag=${IMAGE_TAG} \
+                        --set backend.image.pullPolicy=IfNotPresent \
                         --set frontend.image.repository=${FRONTEND_IMAGE} \
                         --set frontend.image.tag=${IMAGE_TAG} \
+                        --set frontend.image.pullPolicy=IfNotPresent \
                         --wait \
                         --timeout 180s
 
@@ -145,8 +136,7 @@ pipeline {
             }
         }
 
-        // 9. Wait for Kubernetes rollout
-        stage('Restart Deployments') {
+        stage('Verify Deployment') {
             steps {
                 sh '''
                     echo "Waiting for Backend rollout..."
@@ -162,19 +152,11 @@ pipeline {
                         rollout status deployment/frontend \
                         -n ${NAMESPACE} \
                         --timeout=180s
-                '''
-            }
-        }
 
-        // 10. Verify deployment
-        stage('Verify Deployment') {
-            steps {
-                sh '''
                     echo "========== DEPLOYED IMAGES =========="
 
                     kubectl --kubeconfig=${KUBECONFIG} \
-                        get deployments -n ${NAMESPACE} \
-                        -o wide
+                        get deployments -n ${NAMESPACE} -o wide
 
                     echo "========== POD STATUS =========="
 
@@ -207,7 +189,6 @@ pipeline {
     }
 
     post {
-
         success {
             echo 'Flask microservices CI/CD completed successfully!'
             echo 'Latest Docker images deployed to Minikube.'
