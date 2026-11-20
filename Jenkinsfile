@@ -22,6 +22,20 @@ pipeline {
                 echo 'Latest source code checked out successfully'
             }
         }
+        stage('Verify Latest Code') {
+            steps {
+                sh '''
+                    echo "========== LATEST COMMIT =========="
+                    git log -1 --oneline
+
+                    echo "========== FRONTEND HTML =========="
+                    cat frontend/index.html
+
+                    echo "========== WORKSPACE =========="
+                    pwd
+                '''
+            }
+        }
 
         stage('Check Python') {
             steps {
