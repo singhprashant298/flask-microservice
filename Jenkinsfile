@@ -36,7 +36,7 @@ pipeline {
                     git log -1 --oneline
 
                     echo "========== FRONTEND HTML =========="
-                    cat frontend/index.html
+                    cat frontend/templates/index.html
 
                     echo "========== WORKSPACE =========="
                     pwd
