@@ -1,3 +1,4 @@
+
 pipeline {
     agent any
 
@@ -36,26 +37,26 @@ pipeline {
                 sh 'docker build -t flask-frontend:ci ./frontend'
             }
         }
-    }
-    
-    stage('Deploy to Minikube') {
-    steps {
-        sh '''
-            helm upgrade --install flask-jenkins \
-                ./helm/flask-microservices \
-                --kubeconfig=/tmp/kubeconfig \
-                --namespace jenkins-demo \
-                --create-namespace
-        '''
-      }
+
+        stage('Deploy to Minikube') {
+            steps {
+                sh '''
+                    helm upgrade --install flask-jenkins \
+                        ./helm/flask-microservices \
+                        --kubeconfig=/tmp/kubeconfig \
+                        --namespace jenkins-demo \
+                        --create-namespace
+                '''
+            }
+        }
     }
 
     post {
         success {
-            echo 'Flask microservices CI completed successfully!'
+            echo 'Flask microservices CI/CD completed successfully!'
         }
         failure {
-            echo 'CI pipeline failed. Check Console Output.'
+            echo 'Pipeline failed. Check Console Output.'
         }
     }
 }
