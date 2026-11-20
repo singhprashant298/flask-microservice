@@ -14,7 +14,7 @@ pipeline {
         BACKEND_IMAGE = 'flask-backend'
         FRONTEND_IMAGE = 'flask-frontend'
 
-        IMAGE_TAG = "${BUILD_NUMBER}"
+        IMAGE_TAG = "ci"
     }
 
     stages {
