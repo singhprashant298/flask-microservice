@@ -33,12 +33,23 @@ pipeline {
 
         stage('Build Docker Images') {
             steps {
-                sh 'docker build -t flask-backend:ci ./backend'
-                sh 'docker build -t flask-frontend:ci ./frontend'
+                sh '''
+                    docker build -t flask-backend:ci ./backend
+                    docker build -t flask-frontend:ci ./frontend
+                '''
             }
         }
 
-        stage('Deploy to Minikube') {
+        stage('Load Images into Minikube') {
+            steps {
+                sh '''
+                    minikube image load flask-backend:ci
+                    minikube image load flask-frontend:ci
+                '''
+            }
+        }
+
+        stage('Deploy with Helm') {
             steps {
                 sh '''
                     helm upgrade --install flask-jenkins \
@@ -46,6 +57,25 @@ pipeline {
                         --kubeconfig=/tmp/kubeconfig \
                         --namespace jenkins-demo \
                         --create-namespace
+                '''
+            }
+        }
+
+        stage('Restart Deployments') {
+            steps {
+                sh '''
+                    kubectl --kubeconfig=/tmp/kubeconfig \
+                        rollout restart deployment/backend \
+                        deployment/frontend \
+                        -n jenkins-demo
+
+                    kubectl --kubeconfig=/tmp/kubeconfig \
+                        rollout status deployment/backend \
+                        -n jenkins-demo
+
+                    kubectl --kubeconfig=/tmp/kubeconfig \
+                        rollout status deployment/frontend \
+                        -n jenkins-demo
                 '''
             }
         }
